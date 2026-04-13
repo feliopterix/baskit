@@ -1,219 +1,107 @@
-import { useContext, useEffect, useState } from "react";
-import { FlatList, View, StyleSheet } from "react-native";
-import { Divider, Text } from "react-native-paper";
-import { IBaskitIngredient, IIngredient } from "../../types";
+import { useMemo, useState } from "react";
+import { SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Text } from "react-native-paper";
+import { useBasketItemContext } from "../../context/basketItems/BasketItemsContextProvider";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 import BasketItem from "./basketItem/BasketItem";
 import BasketListItemModal from "./BasketListItemModal";
-import { useBasketItemContext } from "../../context/basketItems/BasketItemsContextProvider";
-import useDBQuery from "../../context/database/hooks/useDBQuery";
-import { FromDBIngredient } from "../../helper/FromDBIngredient";
-import {BlurView} from 'expo-blur';
-
-type ListItemsObject = {
-  unchecked: IBaskitIngredient[];
-  checked: IBaskitIngredient[];
-  deleted: IBaskitIngredient[];
-  uncheckedDivider: React.JSX.Element;
-  checkedDivider: React.JSX.Element;
-  deletedDivider: React.JSX.Element;
-};
+import { BasketDisplayGroup, buildBasketSections } from "./basketViewModel";
 
 export default function BasketList() {
-  const { basketItems } = useBasketItemContext();
+  const theme = useBaskitTheme();
+  const { basketItems, loading, error, reload, setGroupChecked } =
+    useBasketItemContext();
+  const [modalGroup, setModalGroup] = useState<BasketDisplayGroup | null>(null);
 
-  const [modalItem, setModalItem] = useState<IBaskitIngredient | null>(null);
-  const [itemChanged, setItemChanged] = useState<boolean>(false);
+  const sections = useMemo(
+    () => buildBasketSections(basketItems),
+    [basketItems]
+  );
 
-  const reduceItems = (items: IBaskitIngredient[]): IBaskitIngredient[] => {
-    let reduced: IBaskitIngredient[] = [];
-
-    items.forEach((item: IBaskitIngredient) => {
-      const existing = reduced.findIndex(
-        (existingIngredient: IIngredient) =>
-          existingIngredient.name === item.name
-      );
-      if (existing !== -1) {
-        if (reduced[existing].unit === item.unit) {
-          reduced[existing].count += item.count;
-        } else {
-          reduced.splice(existing, 0, { ...item });
-        }
-      } else {
-        reduced.push({ ...item });
-      }
-    });
-
-    return reduced;
-  };
-
-  const assembleItems = (basketItems: {
-    [key: string]: IBaskitIngredient[];
-  }): ListItemsObject => {
-    const checkedItems = Object.keys(basketItems)
-      .map((key: string) =>
-        basketItems[key].flat().filter(
-          (ingr: IBaskitIngredient) => ingr.checked && !ingr.markedAsDeleted
-        )
-      )
-      .flat();
-    const uncheckedItems = Object.keys(basketItems)
-      .map((key: string) =>
-        basketItems[key].filter(
-          (ingr: IBaskitIngredient) => !ingr.checked && !ingr.markedAsDeleted
-        )
-      )
-      .flat();
-
-    const deletedItems = Object.keys(basketItems)
-      .map((key: string) =>
-        basketItems[key].filter(
-          (ingr: IBaskitIngredient) => ingr.markedAsDeleted
-        )
-      )
-      .flat();
-    return {
-      unchecked: reduceItems(uncheckedItems),
-      checked: reduceItems(checkedItems),
-      deleted: reduceItems(deletedItems),
-      uncheckedDivider: items?.uncheckedDivider || (
-        <View>
-          <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-          <Text style={{ color: "grey" }}>Offen</Text>
-        </View>
-      ),
-      checkedDivider: items?.checkedDivider || (
-        <View>
-          <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-          <Text style={{ color: "grey" }}>Erledigt</Text>
-        </View>
-      ),
-      deletedDivider: items?.deletedDivider || (
-        <View>
-          <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-          <Text style={{ color: "grey" }}>Gelöscht</Text>
-        </View>
-      ),
-    };
-  };
-
-  const [items, setItems] = useState<ListItemsObject>({
-    unchecked: [],
-    checked: [],
-    deleted: [],
-    uncheckedDivider: (
-      <View>
-        <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-        <Text style={{ color: "grey" }}>Offen</Text>
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <Text style={[styles.placeholder, { color: theme.text.secondary }]}>
+          Einkaufsliste wird geladen...
+        </Text>
       </View>
-    ),
-    checkedDivider: (
-      <View>
-        <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-        <Text style={{ color: "grey" }}>Erledigt</Text>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.center}>
+        <Text style={[styles.placeholder, { color: theme.text.secondary }]}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.retryButton,
+            {
+              backgroundColor: theme.accentColor.active,
+            },
+          ]}
+          onPress={() => {
+            reload();
+          }}
+        >
+          <Text style={{ color: theme.button.foreground }}>Erneut laden</Text>
+        </TouchableOpacity>
       </View>
-    ),
-    deletedDivider: (
-      <View>
-        <Divider style={{ marginTop: 8, marginBottom: 8 }}></Divider>
-        <Text style={{ color: "grey" }}>Gelöscht</Text>
+    );
+  }
+
+  if (sections.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={[styles.placeholder, { color: theme.text.secondary }]}>
+          Keine Eintraege im Basket.
+        </Text>
+        <Text style={[styles.help, { color: theme.text.muted }]}>
+          Fuege Zutaten aus einem Rezept oder eigene Positionen hinzu.
+        </Text>
       </View>
-    ),
-  });
-
-  useEffect(() => {
-    if(!basketItems) return;
-    setItems(assembleItems(basketItems));
-  }, [basketItems]);
-
-  useEffect(() => {
-    if (!itemChanged) return;
-    const assembled = assembleItems(basketItems);
-
-    setItems({
-      unchecked: assembled.unchecked,
-      checked: assembled.checked,
-      deleted: assembled.deleted,
-      uncheckedDivider: items.uncheckedDivider,
-      checkedDivider: items.checkedDivider,
-      deletedDivider: items.deletedDivider,
-    });
-    setItemChanged(false);
-  }, [itemChanged]);
-
-  const setItemChecked = (item: IBaskitIngredient, checked: boolean) => {
-    const list = Object.keys(basketItems)
-    .map((key: string) => basketItems[key])
-    .flat()
-    .filter((ingr: IBaskitIngredient) => ingr.name === item.name);
-    if (list.length === 0) return;
-    list.forEach((ingr: IBaskitIngredient) => {
-      ingr.checked = checked;
-    });
-    setItemChanged(true);
-  };
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <View style={styles.listHeader}>
-        <Text style={styles.title}>Diese Dinge musst du kaufen</Text>
-      </View>
-
-      {/* unchecked items are rendered at the top, checked items are rendered at the bottom */}
-      {[...items.unchecked, ...items.checked].length > 0 && (
-        <View style={styles.listContainer}>
-          <FlatList
-            data={[
-              { name: "divider", id: "divider_unchecked" } as IBaskitIngredient,
-              ...items.unchecked,
-              { name: "divider", id: "divider_checked" } as IBaskitIngredient,
-              ...items.checked,
-              { name: "divider", id: "divider_deleted" } as IBaskitIngredient,
-              ...items.deleted,
-            ]}
-            renderItem={({ item }) => (
-              <>
-                {items.unchecked.length > 0 &&
-                  item.id === "divider_unchecked" &&
-                  items.uncheckedDivider}
-                {items.checked.length > 0 &&
-                  item.id === "divider_checked" &&
-                  items.checkedDivider}
-                {items.deleted.length > 0 &&
-                  item.id === "divider_deleted" &&
-                  items.deletedDivider}
-                
-                {item.name !== "divider" && (
-                  <BasketItem
-                    onCheckChanged={(checked: boolean) => {
-                      setItemChecked(item, checked);
-                    }}
-                    onLongPress={() => {
-                      setModalItem(item);
-                    }}
-                    ingredient={item}
-                  />
-                )}
-              </>
-            )}
-            keyExtractor={(item) => item.id}
+      <SectionList
+        sections={sections}
+        keyExtractor={(item) => item.id}
+        stickySectionHeadersEnabled={false}
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.text.secondary }]}>
+              {section.title}
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.text.muted }]}>
+              {section.subtitle}
+            </Text>
+          </View>
+        )}
+        renderItem={({ item }) => (
+          <BasketItem
+            ingredient={item.aggregate}
+            sourceCount={item.sourceGroupCount}
+            subtitle={item.subtitle}
+            onCheckChanged={(checked) => {
+              setGroupChecked(item.sourceRows, checked);
+            }}
+            onLongPress={() => {
+              setModalGroup(item);
+            }}
           />
-        </View>
-      )}
+        )}
+      />
 
-      {/* if list is empty show empty container */}
-      {items.unchecked.length === 0 && items.checked.length === 0 && (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}> Keine Einträge </Text>
-        </View>
-      )}
-
-      {modalItem && (
+      {modalGroup && (
         <BasketListItemModal
-          item={modalItem}
+          group={modalGroup}
           onClose={() => {
-            setModalItem(null);
+            setModalGroup(null);
           }}
-        ></BasketListItemModal>
+        />
       )}
     </View>
   );
@@ -222,24 +110,38 @@ export default function BasketList() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 8,
   },
-  listHeader: {
+  sectionHeader: {
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  title: {
-    color: "black",
-    fontSize: 18,
+  sectionTitle: {
+    fontSize: 13,
+    textTransform: "uppercase",
   },
-  listContainer: {
-    
+  sectionSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  emptyContainer: {
-    width: "100%",
-    height: "100%",
+  center: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: 24,
   },
-  emptyText: {
-    color: "rgb(150, 150, 150)",
+  placeholder: {
+    fontSize: 16,
+    textAlign: "center",
+  },
+  help: {
+    fontSize: 13,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
   },
 });

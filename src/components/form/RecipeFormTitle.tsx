@@ -1,25 +1,26 @@
-import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 
 export default function RecipeFormTitle(props: {
   title: string;
   setTitle: (title: string) => void;
 }) {
-  const [internalTitle, setInternalTitle] = useState<string>(props.title);
-
-  const submit = () => {
-    props.setTitle(internalTitle);
-  };
+  const theme = useBaskitTheme();
 
   return (
     <TextInput
-      style={styles.title}
-      value={internalTitle}
+      style={[
+        styles.title,
+        {
+          color: theme.text.primary,
+          borderColor: theme.surface.cardSoft,
+          backgroundColor: theme.surface.card,
+        },
+      ]}
+      value={props.title}
       placeholder="Titel"
-      placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
-      onChangeText={setInternalTitle}
-      onBlur={submit}
-      onSubmitEditing={submit}
+      placeholderTextColor={theme.text.muted}
+      onChangeText={props.setTitle}
     />
   );
 }
@@ -31,10 +32,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    paddingBottom: 16,
-
-    color: "rgb(255,255,255)",
-
-    fontSize: 48,
+    fontSize: 34,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
 });

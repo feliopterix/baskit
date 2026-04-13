@@ -1,9 +1,20 @@
 {
-    "accentColor": {
-        "active": "rgba(235, 107, 150, 1.0)",
-        "passive": "rgba(138, 73, 95, 1.0)"
-    },
-    "button": {
-        
-    }
+  "accentColor": {
+    "active": "rgba(235, 107, 150, 1.0)",
+    "passive": "rgba(138, 73, 95, 1.0)"
+  },
+  "surface": {
+    "background": "rgba(14, 14, 20, 1)",
+    "card": "rgba(25, 26, 35, 0.94)",
+    "cardSoft": "rgba(35, 36, 48, 0.92)",
+    "overlay": "rgba(8, 8, 12, 0.86)"
+  },
+  "text": {
+    "primary": "rgba(245, 244, 248, 1)",
+    "secondary": "rgba(187, 188, 199, 1)",
+    "muted": "rgba(140, 142, 158, 1)"
+  },
+  "button": {
+    "foreground": "rgba(255, 255, 255, 1)"
+  }
 }

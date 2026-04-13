@@ -4,13 +4,29 @@ import { IIngredient } from "../../../types";
 
 export default function RecipeIngredientsList(props: {
   ingredients: IIngredient[];
+  selectable?: boolean;
+  selectedKeys?: string[];
+  onToggleIngredient?: (ingredient: IIngredient, index: number) => void;
 }) {
   return (
     <FlatList
       style={styles.list}
       data={props.ingredients}
-      renderItem={({ item }) => <RecipeIngredient ingredient={item} />}
-      keyExtractor={(item) => item.name}
+      renderItem={({ item, index }) => (
+        <RecipeIngredient
+          ingredient={item}
+          selectable={props.selectable}
+          selected={
+            props.selectable
+              ? props.selectedKeys?.includes(`${item.name}-${index}`)
+              : true
+          }
+          onToggle={() => {
+            props.onToggleIngredient?.(item, index);
+          }}
+        />
+      )}
+      keyExtractor={(item, index) => `${item.name}-${index}`}
     />
   );
 }

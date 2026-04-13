@@ -13,10 +13,16 @@ export const SCHEMA_ITEMS = `
   create table if not exists items(
       id text primary key,
       name text not null,
-      unit string,
-      count number,
-      recipeId text not null,
-      checked boolean,
-      markedAsDeleted boolean
+      unit text,
+      count real,
+      recipeId text,
+      basketGroupId text not null,
+      sourceKind text not null default 'recipe',
+      sourceRecipeId text,
+      sourceRecipeTitle text,
+      sourceRecipeDeleted integer not null default 0,
+      checked integer not null default 0,
+      markedAsDeleted integer not null default 0,
+      createdAt integer not null default 0
   );
 `;

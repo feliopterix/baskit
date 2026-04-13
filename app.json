@@ -16,14 +16,16 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.ffrank.baskit"
+      "bundleIdentifier": "com.ffrank.baskit",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/app/adaptiveicon.png",
         "backgroundColor": "#eb6b96"
       },
-      "package": "com.ffrank.baskit"
+      "package": "com.ffrank.baskit",
+      "versionCode": 1
     },
     "extra": {
       "eas": {

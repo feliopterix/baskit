@@ -6,194 +6,287 @@ import {
   useMemo,
   useState,
 } from "react";
-import { IBaskitIngredient, IIngredient, IRecipe } from "../../types";
-import { IBaskitRecipe } from "../../types/internal/IBaskitRecipe.types";
 import "react-native-get-random-values";
 import { v4 } from "uuid";
-import useDBInsert from "../database/hooks/useDBInsert";
-import { ToDBIngredient } from "../../helper/ToDBIngredient";
-import useDBQuery from "../database/hooks/useDBQuery";
+import { DBContext } from "../database/DBContextProvider";
 import { FromDBIngredient } from "../../helper/FromDBIngredient";
-import useDBUpdate from "../database/hooks/useDBUpdate";
-import useDBClear from "../database/hooks/useDBClear";
+import { normalizeIngredient } from "../../helper/NormalizeIngredient";
+import { ToDBIngredient } from "../../helper/ToDBIngredient";
+import { IBaskitIngredient, IBaskitRecipe, IIngredient, IRecipe } from "../../types";
+
+type RecipeForBasket = IRecipe & { id?: string };
 
 type BasketItemContextType = {
-  basketRecipes: IRecipe[];
-  basketItems: { [key: string]: IBaskitIngredient[] };
-  addRecipeToBasket: (recipe: IRecipe) => void;
-  removeRecipeFromBasket: (recipe: IBaskitRecipe) => void;
-  addItem: (ingredient: IIngredient) => void;
-  modifyItem: (overwriteIngredient: IBaskitIngredient) => void;
-  removeItem: (recipe: IBaskitIngredient) => void;
-  clearAllItems: () => void;
+  basketItems: IBaskitIngredient[];
+  loading: boolean;
+  error: string | null;
+  reload: () => Promise<void>;
+  addRecipeToBasket: (
+    recipe: RecipeForBasket,
+    selectedIngredients?: IIngredient[]
+  ) => Promise<void>;
+  markRecipeDeleted: (recipe: IBaskitRecipe) => Promise<void>;
+  addItem: (ingredient: IIngredient) => Promise<void>;
+  modifyItem: (overwriteIngredient: IBaskitIngredient) => Promise<void>;
+  setGroupChecked: (
+    ingredients: IBaskitIngredient[],
+    checked: boolean
+  ) => Promise<void>;
+  clearAllItems: () => Promise<void>;
 };
 
-const BasketItemContext = createContext<BasketItemContextType>(null);
+const BasketItemContext = createContext<BasketItemContextType | null>(null);
 
-export const useBasketItemContext = () => useContext(BasketItemContext);
+export const useBasketItemContext = () => {
+  const value = useContext(BasketItemContext);
+  if (!value) {
+    throw new Error("BasketItemContext is not available.");
+  }
+  return value;
+};
 
 export function BasketItemContextProvider({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // database hooks
-  const insertBasketItem = useDBInsert('items');
-  const queryBasketItems = useDBQuery('items');
-  const updateBasketItems = useDBUpdate('items');
-  const clearBasketItems = useDBClear('items');
-  
-  const [basketRecipes, setBasketRecipes] = useState<IBaskitRecipe[]>([]);
-  const [basketItems, setBasketItems] = useState<{ [key: string]: IBaskitIngredient[] }>({});
-  
+  const database = useContext(DBContext);
+  const [basketItems, setBasketItems] = useState<IBaskitIngredient[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!database) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await database.executeQuery(
+        "SELECT * FROM items ORDER BY createdAt ASC, id ASC"
+      );
+      setBasketItems(result.rows._array.map((row) => FromDBIngredient(row)));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Basket konnte nicht geladen werden.");
+    } finally {
+      setLoading(false);
+    }
+  }, [database]);
+
   useEffect(() => {
-    queryBasketItems().then((result) => {
-      const object = {}; 
-      result.rows._array.forEach((data) => {
-        if(object[data.recipeId] === undefined) object[data.recipeId] = [];
-        object[data.recipeId].push(FromDBIngredient(data));
+    reload();
+  }, [reload]);
+
+  const insertIngredientRow = useCallback(
+    async (ingredient: IIngredient, recipe: RecipeForBasket | null) => {
+      if (!database) {
+        throw new Error("Database not available in BasketItemContextProvider.");
+      }
+
+      const normalizedIngredient = normalizeIngredient(ingredient);
+      if (!normalizedIngredient) return;
+
+      const basketGroupId = v4();
+      const row = ToDBIngredient(normalizedIngredient, {
+        basketGroupId,
+        sourceKind: recipe ? "recipe" : "custom",
+        sourceRecipeId: recipe?.id ?? null,
+        sourceRecipeTitle: recipe?.title ?? "Eigen",
+        recipeId: recipe?.id ?? "__CUSTOM__",
       });
-      setBasketItems(object)
-    });
-  }, []);
 
-  const transformRecipe = (recipe: IRecipe, recipeIndex: number) => {
-    const recipeID = v4();
-    return {
-      ...recipe,
-      id: recipeID,
-      index: recipeIndex,
-      ingredients: recipe.ingredients.map((ingr, index) =>
-        transformIngredient(ingr, recipeID, index)
-      ),
-    };
-  };
+      if (!row) return;
 
-  const transformIngredient = (ingredient: IIngredient, recipeId: string, index: number) => {
-    return {
-      ...ingredient,
-      itemIndex: index,
-      checked: false,
-      recipeId: recipeId,
-      id: v4(),
-      markedAsDeleted: false,
-    };
-  };
-
-  const addRecipeToBasket = useCallback((recipe: IRecipe) => {
-    const recipeIndex = basketRecipes.length;
-    const basketRecipe = transformRecipe(recipe, recipeIndex);
-    setBasketItems((previewState) => {
-      return {
-        ...previewState,
-        [basketRecipe.id]: basketRecipe.ingredients.map((ingr, index) => {
-          return transformIngredient(ingr, basketRecipe.id, index);
-        }),
-      };
-    });
-
-    // add recipe to recipes in basket
-    setBasketRecipes((previewState) => {
-      return [...previewState, basketRecipe];
-    });
-
-    // add ingredients to DB Basket
-    recipe.ingredients.forEach((ingr) => {
-      const db = ToDBIngredient(ingr, basketRecipe.id);
-      insertBasketItem(Object.keys(db), Object.values(db));
-    });
-  }, []);
-
-  const removeRecipeFromBasket = useCallback((recipe: IBaskitRecipe) => {
-    if (recipe.id === "__CUSTOM__") {
-      console.warn("Cannot delete custom recipe. Aborting...");
-      return;
-    }
-
-    const recipeIndex = basketRecipes.findIndex(
-      (exists: IBaskitRecipe) => exists.id === recipe.id
-    );
-    if (recipeIndex === -1) {
-      console.warn(
-        "Invalid index to remove BasketRecipe " +
-          recipe.id +
-          " . Aborting remove..."
+      await database.executeQuery(
+        `
+          INSERT INTO items (
+            id,
+            name,
+            unit,
+            count,
+            recipeId,
+            basketGroupId,
+            sourceKind,
+            sourceRecipeId,
+            sourceRecipeTitle,
+            sourceRecipeDeleted,
+            checked,
+            markedAsDeleted,
+            createdAt
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          row.id,
+          row.name,
+          row.unit,
+          row.count,
+          row.recipeId,
+          row.basketGroupId,
+          row.sourceKind,
+          row.sourceRecipeId,
+          row.sourceRecipeTitle,
+          row.sourceRecipeDeleted,
+          row.checked,
+          row.markedAsDeleted,
+          row.createdAt,
+        ]
       );
-      return;
+    },
+    [database]
+  );
+
+  const addRecipeToBasket = useCallback(
+    async (recipe: RecipeForBasket, selectedIngredients?: IIngredient[]) => {
+      if (!database) return;
+
+      const ingredients = (selectedIngredients ?? recipe.ingredients)
+        .map((ingredient) => normalizeIngredient(ingredient))
+        .filter((ingredient): ingredient is IIngredient => ingredient !== null);
+
+      if (ingredients.length === 0) return;
+
+      setError(null);
+
+      try {
+        for (const ingredient of ingredients) {
+          await insertIngredientRow(ingredient, recipe);
+        }
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Rezept konnte nicht in den Basket uebernommen werden.");
+      }
+    },
+    [database, insertIngredientRow, reload]
+  );
+
+  const addItem = useCallback(
+    async (ingredient: IIngredient) => {
+      if (!database) return;
+
+      const normalizedIngredient = normalizeIngredient(ingredient);
+      if (!normalizedIngredient) return;
+
+      setError(null);
+
+      try {
+        await insertIngredientRow(normalizedIngredient, null);
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Eigener Eintrag konnte nicht gespeichert werden.");
+      }
+    },
+    [database, insertIngredientRow, reload]
+  );
+
+  const modifyItem = useCallback(
+    async (overwriteIngredient: IBaskitIngredient) => {
+      if (!database) return;
+
+      try {
+        await database.executeQuery(
+          `
+            UPDATE items
+            SET checked = ?,
+                markedAsDeleted = ?,
+                sourceRecipeTitle = ?,
+                sourceRecipeDeleted = ?
+            WHERE id = ?
+          `,
+          [
+            overwriteIngredient.checked ? 1 : 0,
+            overwriteIngredient.markedAsDeleted ? 1 : 0,
+            overwriteIngredient.sourceRecipeTitle,
+            overwriteIngredient.sourceRecipeDeleted ? 1 : 0,
+            overwriteIngredient.id,
+          ]
+        );
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Basket-Eintrag konnte nicht aktualisiert werden.");
+      }
+    },
+    [database, reload]
+  );
+
+  const setGroupChecked = useCallback(
+    async (ingredients: IBaskitIngredient[], checked: boolean) => {
+      if (!database || ingredients.length === 0) return;
+
+      try {
+        for (const ingredient of ingredients) {
+          await database.executeQuery("UPDATE items SET checked = ? WHERE id = ?", [
+            checked ? 1 : 0,
+            ingredient.id,
+          ]);
+        }
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Basket-Status konnte nicht aktualisiert werden.");
+      }
+    },
+    [database, reload]
+  );
+
+  const markRecipeDeleted = useCallback(
+    async (recipe: IBaskitRecipe) => {
+      if (!database) return;
+
+      try {
+        await database.executeQuery(
+          `
+            UPDATE items
+            SET sourceRecipeDeleted = 1,
+                sourceRecipeTitle = ?
+            WHERE sourceRecipeId = ?
+          `,
+          [`${recipe.title} (geloescht)`, recipe.id]
+        );
+        await reload();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Rezept-Snapshots konnten nicht aktualisiert werden.");
+      }
+    },
+    [database, reload]
+  );
+
+  const clearAllItems = useCallback(async () => {
+    if (!database) return;
+
+    try {
+      await database.executeQuery("DELETE FROM items");
+      setBasketItems([]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Basket konnte nicht geleert werden.");
     }
+  }, [database]);
 
-    const spliced = basketRecipes.splice(recipeIndex, 1);
-    const removed = spliced[0];
-    delete basketItems[removed.id];
-  }, [basketRecipes, basketItems]);
-
-  const addItem = useCallback((ingredient: IIngredient) => {
-    if (basketItems["__CUSTOM__"] === undefined)
-      basketItems["__CUSTOM__"] = [];
-
-    const modified = {...basketItems};
-    modified["__CUSTOM__"].push(
-      transformIngredient(
-        ingredient,
-        "__CUSTOM__",
-        basketItems["__CUSTOM__"].length
-      )
-    );
-    setBasketItems(modified);
-  }, [basketItems]);
-
-  const modifyItem = useCallback((overwriteIngredient: IBaskitIngredient) => {
-    const copy = {...basketItems};
-    let ingr = copy[overwriteIngredient.recipeId].find((ingr) => ingr.id === overwriteIngredient.id);
-    ingr = { ...ingr, ...overwriteIngredient };
-    setBasketItems(copy);
-    updateBasketItems({column: "markedAsDeleted", value: overwriteIngredient.markedAsDeleted}, {field: "id", conditional: "=", value: overwriteIngredient.id});
-  }, [basketItems]);
-
-  const removeItem = useCallback((ingredient: IBaskitIngredient) => {
-    const removed = basketItems[ingredient.recipeId].splice(
-      basketItems[ingredient.recipeId].findIndex(
-        (ingr: IBaskitIngredient) => ingr.id === ingredient.id
-      ),
-      1
-    )[0];
-    if (removed.recipeId === "__CUSTOM__") return;
-
-    const recipeIndex = basketRecipes.findIndex(
-      (recipe: IBaskitRecipe) => recipe.id === removed.recipeId
-    );
-    if (recipeIndex === -1) {
-      console.warn(
-        "Invalid BasketRecipeID " +
-          removed.recipeId +
-          " . Cannot mark as deleted. Aborting..."
-      );
-      return;
-    }
-
-    basketRecipes[recipeIndex].ingredients.find(
-      (ingr: IBaskitIngredient) => ingr.name === ingredient.name
-    ).markedAsDeleted = true;
-  }, [basketRecipes, basketItems]);
-
-  const clearAllItems = useCallback(() => {
-    setBasketItems({});
-    setBasketRecipes([]);
-    clearBasketItems().then((result) => console.log(result));
-  }, [basketItems])
-
-  const contextObject = useMemo(() => {
-    return {
-      basketRecipes: basketRecipes,
-      basketItems: basketItems,
+  const contextObject = useMemo(
+    () => ({
+      basketItems,
+      loading,
+      error,
+      reload,
       addRecipeToBasket,
-      removeRecipeFromBasket,
+      markRecipeDeleted,
       addItem,
       modifyItem,
-      removeItem,
+      setGroupChecked,
       clearAllItems,
-    }
-  }, [basketRecipes, basketItems, addRecipeToBasket, addItem, modifyItem, removeRecipeFromBasket, removeItem]);
+    }),
+    [
+      basketItems,
+      loading,
+      error,
+      reload,
+      addRecipeToBasket,
+      markRecipeDeleted,
+      addItem,
+      modifyItem,
+      setGroupChecked,
+      clearAllItems,
+    ]
+  );
 
   return (
     <BasketItemContext.Provider value={contextObject}>

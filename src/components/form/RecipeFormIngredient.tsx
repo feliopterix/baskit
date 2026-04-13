@@ -1,20 +1,22 @@
 import { useRef, useState } from "react";
 import {
   StyleSheet,
-  View,
-  TextInput,
   Text,
+  TextInput,
   TouchableHighlight,
+  View,
 } from "react-native";
 import Checkbox from "../checkbox/Checkbox";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
+import { normalizeIngredient } from "../../helper/NormalizeIngredient";
 import { IIngredient } from "../../types";
 
 export default function RecipeFormIngredient(props: {
-  confirmData: (ingredient: IIngredient) => void
+  confirmData: (ingredient: IIngredient) => void;
 }) {
+  const theme = useBaskitTheme();
   const unitInput = useRef<TextInput | null>(null);
   const nameInput = useRef<TextInput | null>(null);
-
   const [countValue, setCountValue] = useState<number | null>(null);
   const [unitValue, setUnitValue] = useState<string | null>(null);
   const [nameValue, setNameValue] = useState<string>("");
@@ -23,55 +25,74 @@ export default function RecipeFormIngredient(props: {
     setCountValue(null);
     setUnitValue(null);
     setNameValue("");
-  }
+  };
+
+  const submit = () => {
+    const normalized = normalizeIngredient({
+      count: countValue,
+      unit: unitValue,
+      name: nameValue,
+    });
+
+    if (!normalized) return;
+    props.confirmData(normalized);
+    clearMe();
+  };
 
   return (
     <>
       <View style={styles.container}>
         <Checkbox hidden={true} disabled={true} defaultValue={true}>
           <TextInput
-            style={styles.text}
+            style={[styles.text, { color: theme.text.primary }]}
             keyboardType="numeric"
-            value={countValue > 0 ? countValue.toString() : null}
+            value={countValue && countValue > 0 ? countValue.toString() : ""}
             placeholder="2"
-            placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
+            placeholderTextColor={theme.text.muted}
             onChangeText={(text: string) => {
               setCountValue(Number.parseFloat(text));
             }}
             onSubmitEditing={() => {
-              unitInput.current?.focus()
+              unitInput.current?.focus();
             }}
           />
           <TextInput
-            style={styles.text}
+            style={[styles.text, { color: theme.text.primary }]}
             ref={unitInput}
-            value={unitValue}
+            value={unitValue ?? ""}
             placeholder="TL"
-            placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
+            placeholderTextColor={theme.text.muted}
             onChangeText={setUnitValue}
             onSubmitEditing={() => {
-              nameInput.current?.focus()
+              nameInput.current?.focus();
             }}
-            />
+          />
           <TextInput
-            style={styles.text}
+            style={[styles.text, { color: theme.text.primary }]}
             ref={nameInput}
             value={nameValue}
             placeholder="Paprikapulver"
-            placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
+            placeholderTextColor={theme.text.muted}
             onChangeText={setNameValue}
-            onSubmitEditing={() => {
-              props.confirmData({count: countValue, unit: unitValue, name: nameValue});
-              clearMe();
-            }}
+            onSubmitEditing={submit}
           />
         </Checkbox>
       </View>
-        <TouchableHighlight disabled={nameValue.length === 0} style={styles.button} onPress={() => {
-          props.confirmData({count: countValue, unit: unitValue, name: nameValue});
-        }}>
-          <Text style={{...styles.buttonText, color: nameValue.length === 0 ? "rgba(100, 100, 100, 0.7)" : "white" }}>Hinzufügen</Text>
-        </TouchableHighlight>
+      <TouchableHighlight
+        disabled={nameValue.trim().length === 0}
+        style={[
+          styles.button,
+          {
+            backgroundColor:
+              nameValue.trim().length === 0
+                ? theme.surface.cardSoft
+                : theme.accentColor.active,
+          },
+        ]}
+        onPress={submit}
+      >
+        <Text style={styles.buttonText}>Hinzufuegen</Text>
+      </TouchableHighlight>
     </>
   );
 }
@@ -79,32 +100,22 @@ export default function RecipeFormIngredient(props: {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    height: 42,
+    minHeight: 42,
     flexDirection: "row",
     alignItems: "center",
   },
   button: {
-    flex: 0.33,
-    paddingLeft: 4,
-    paddingRight: 4,
-
-    alignItems: "center",
-    justifyContent: "center",
-
-    borderRadius: 4,
-    backgroundColor: "rgba(40, 40, 40, 0.8)",
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
   },
   buttonText: {
-    height: 42,
-    top: 11,
-
-    fontSize: 16,
-
+    fontSize: 15,
     color: "white",
   },
   text: {
-    color: "white",
-    fontSize: 22,
+    fontSize: 18,
     marginLeft: 8,
   },
 });

@@ -1,6 +1,7 @@
 import { StyleSheet, View, Image, TouchableOpacity } from "react-native";
 import { Text } from "react-native-paper";
 import { ImageLib } from "../../ImageLib";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 
 export default function RecipeButton(props: {
   title: string;
@@ -8,12 +9,36 @@ export default function RecipeButton(props: {
   onPress: () => void;
   description?: string;
 }) {
+  const theme = useBaskitTheme();
+
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={() => props.onPress()}>
-        <Image style={styles.image} source={props.image ? { uri: props.image } : ImageLib["Default"]} />
-        <View style={styles.textBackground}>
-          <Text style={styles.text}>{props.title}</Text>
+        <Image
+          style={styles.image}
+          source={
+            props.image && props.image !== "Default"
+              ? { uri: props.image }
+              : ImageLib["Default"]
+          }
+        />
+        <View
+          style={[
+            styles.textBackground,
+            { backgroundColor: theme.surface.overlay },
+          ]}
+        >
+          <Text style={[styles.text, { color: theme.text.primary }]}>
+            {props.title}
+          </Text>
+          {props.description ? (
+            <Text
+              style={[styles.description, { color: theme.text.secondary }]}
+              numberOfLines={2}
+            >
+              {props.description}
+            </Text>
+          ) : null}
         </View>
       </TouchableOpacity>
     </View>
@@ -22,37 +47,31 @@ export default function RecipeButton(props: {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     width: "100%",
-    height: 200,
-    overflow: "hidden",
   },
   textBackground: {
-    width: "100%",
-    height: 32,
-
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   text: {
-    top: 6,
-    left: 16,
-    fontSize: 16,
-
-    color: "rgba(255, 255, 255, 0.8)"
+    fontSize: 18,
+    marginBottom: 4,
+  },
+  description: {
+    fontSize: 12,
   },
   image: {
-    position: "absolute",
     width: "100%",
-    height: "auto",
-    aspectRatio: 1,
-    transform: [{ translateY: -100 }],
+    aspectRatio: 1.4,
+    borderRadius: 22,
   },
   button: {
-    flex: 1,
     width: "100%",
-    height: "100%",
-    borderRadius: 0,
+    justifyContent: "flex-end",
   },
 });

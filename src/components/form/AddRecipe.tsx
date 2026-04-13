@@ -1,19 +1,41 @@
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 import { Text } from "react-native-paper";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 
-export default function AddRecipe(props: { onConfirm: () => void, onCancel: () => void}) {
-  
+export default function AddRecipe(props: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  mode?: "create" | "edit";
+  disabled?: boolean;
+}) {
+  const theme = useBaskitTheme();
+
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={{...styles.button, backgroundColor: "rgba(150, 40, 40, 0.8)" }} onPress={() => {
-        props.onCancel();
-      }}>
-        <Text style={styles.text}>Rezept Verwerfen</Text>
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: theme.accentColor.passive }]}
+        onPress={props.onCancel}
+      >
+        <Text style={[styles.text, { color: theme.button.foreground }]}>
+          Abbrechen
+        </Text>
       </TouchableOpacity>
-      <TouchableOpacity style={{...styles.button, backgroundColor: "rgba(40, 150, 40, 0.8)" }} onPress={() => {
-        props.onConfirm();
-      }}>
-        <Text style={styles.text}>Rezept hinzufügen</Text>
+      <TouchableOpacity
+        disabled={props.disabled}
+        style={[
+          styles.button,
+          {
+            backgroundColor: props.disabled
+              ? theme.surface.cardSoft
+              : theme.accentColor.active,
+            opacity: props.disabled ? 0.6 : 1,
+          },
+        ]}
+        onPress={props.onConfirm}
+      >
+        <Text style={[styles.text, { color: theme.button.foreground }]}>
+          {props.mode === "edit" ? "Rezept speichern" : "Rezept anlegen"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -21,28 +43,19 @@ export default function AddRecipe(props: { onConfirm: () => void, onCancel: () =
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     width: "100%",
     flexDirection: "row",
-    marginBottom: 8, 
+    gap: 8,
+    marginBottom: 8,
   },
   button: {
     flex: 1,
-    marginLeft: 8,
-    marginRight: 8,
-
     alignItems: "center",
     justifyContent: "center",
-
-    borderRadius: 4,
-    backgroundColor: "rgba(40, 40, 40, 0.8)",
+    borderRadius: 16,
+    paddingVertical: 14,
   },
   text: {
-    height: 42,
-    top: 11,
-
     fontSize: 16,
-
-    color: "white",
   },
 });

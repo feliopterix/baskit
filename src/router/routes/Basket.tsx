@@ -1,51 +1,58 @@
-import { View, StyleSheet, TouchableHighlight, Image } from "react-native";
-import { Text } from "react-native-paper";
-import BasketList from "../../components/basket/BasketList";
-import RecipeFormIngredient from "../../components/form/RecipeFormIngredient";
-import { IIngredient } from "../../types";
-import { useBasketItemContext } from "../../context/basketItems/BasketItemsContextProvider";
-import { AssetLib } from "../../AssetLib";
 import { useState } from "react";
-import AddCustomItem from "../../components/basket/AddCustomItem";
+import { Image, StyleSheet, TouchableHighlight, View } from "react-native";
+import { Text } from "react-native-paper";
 import { BlurView } from "expo-blur";
+import { AssetLib } from "../../AssetLib";
+import BasketList from "../../components/basket/BasketList";
+import AddCustomItem from "../../components/basket/AddCustomItem";
+import { useBasketItemContext } from "../../context/basketItems/BasketItemsContextProvider";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
+import { IIngredient } from "../../types";
 
 export default function Basket() {
+  const theme = useBaskitTheme();
   const { addItem, clearAllItems } = useBasketItemContext();
 
   const [showClearModal, setShowClearModal] = useState<boolean>(false);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.surface.background }]}>
       <View style={styles.basketContainer}>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>baskit</Text>
+        <View
+          style={[
+            styles.titleContainer,
+            { backgroundColor: theme.surface.card },
+          ]}
+        >
+          <View>
+            <Text style={[styles.title, { color: theme.text.primary }]}>
+              Einkaufsliste
+            </Text>
+            <Text style={[styles.subtitle, { color: theme.text.secondary }]}>
+              Abhaken, ausblenden und eigene Positionen ergaenzen.
+            </Text>
+          </View>
           <TouchableHighlight
-            style={{
-              width: 48,
-              height: 48,
-              marginLeft: 16,
-              zIndex: 1,
-              borderRadius: 8,
-            }}
-            underlayColor={"rgba(138, 73, 95, 1.0)"}
-            onPress={async () => {
+            style={[
+              styles.clearButton,
+              { backgroundColor: theme.accentColor.passive },
+            ]}
+            underlayColor={theme.accentColor.active}
+            onPress={() => {
               setShowClearModal(true);
             }}
           >
-            <Image
-              style={{ left: "12%", top: "12%", width: "75%", height: "75%" }}
-              source={AssetLib.Trash}
-            ></Image>
+            <Image style={styles.clearIcon} source={AssetLib.Trash}></Image>
           </TouchableHighlight>
         </View>
-        <BasketList></BasketList>
+        <View style={styles.listContainer}>
+          <BasketList></BasketList>
+        </View>
         <View
-          style={{
-            height: 44,
-            backgroundColor: "#eb6b96",
-            flexDirection: "row",
-            bottom: 0,
-          }}
+          style={[
+            styles.addCustomContainer,
+            { backgroundColor: theme.surface.card },
+          ]}
         >
           <AddCustomItem
             confirmData={(ingredient: IIngredient) => {
@@ -56,31 +63,42 @@ export default function Basket() {
       </View>
       {showClearModal && (
         <View style={styles.clearContainer}>
-          <BlurView style={styles.clearModal} intensity={10}>
-            <Text style={styles.clearModalTitle}>Alle Elemente löschen?</Text>
-            <Text style={styles.clearModalText}>
-              Bist du Dir sicher, dass du alle Elemente in deinem Baskit löschen
-              möchtest?
+          <BlurView
+            style={[styles.clearModal, { backgroundColor: theme.surface.overlay }]}
+            intensity={10}
+          >
+            <Text style={[styles.clearModalTitle, { color: theme.text.primary }]}>
+              Einkaufsliste leeren?
+            </Text>
+            <Text style={[styles.clearModalText, { color: theme.text.secondary }]}>
+              Alle Basket-Eintraege werden entfernt. Dieser Schritt kann nicht
+              rueckgaengig gemacht werden.
             </Text>
             <View style={styles.clearModalButtonRow}>
               <TouchableHighlight
-                style={styles.clearModalButtonKeep}
-                underlayColor={"rgb(54, 201, 54)"}
-                onPress={async () => {
-                  setShowClearModal(false);
-                }}
-                >
-                <Text style={styles.clearModalButtonText}>Behalten</Text>
-              </TouchableHighlight>
-              <TouchableHighlight
-                style={styles.clearModalButtonDelete}
-                underlayColor={"rgb(201, 54, 54)"}
-                onPress={async () => {
-                  clearAllItems();
+                style={[
+                  styles.clearModalButtonKeep,
+                  { backgroundColor: theme.surface.cardSoft },
+                ]}
+                underlayColor={theme.surface.card}
+                onPress={() => {
                   setShowClearModal(false);
                 }}
               >
-                <Text style={styles.clearModalButtonText}>Löschen</Text>
+                <Text style={{ color: theme.text.primary }}>Behalten</Text>
+              </TouchableHighlight>
+              <TouchableHighlight
+                style={[
+                  styles.clearModalButtonDelete,
+                  { backgroundColor: theme.accentColor.active },
+                ]}
+                underlayColor={theme.accentColor.passive}
+                onPress={async () => {
+                  await clearAllItems();
+                  setShowClearModal(false);
+                }}
+              >
+                <Text style={{ color: theme.button.foreground }}>Leeren</Text>
               </TouchableHighlight>
             </View>
           </BlurView>
@@ -96,6 +114,11 @@ const styles = StyleSheet.create({
   },
   basketContainer: {
     flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  listContainer: {
+    flex: 1,
   },
   clearContainer: {
     flex: 1,
@@ -103,59 +126,66 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     justifyContent: "center",
+    padding: 12,
   },
   clearModal: {
-    padding: 16,
-    margin: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(138, 73, 95, 0.7)",
+    padding: 18,
+    borderRadius: 24,
   },
   clearModalTitle: {
-    fontSize: 24,
-    color: "rgb(0,0,0)",
+    fontSize: 22,
   },
   clearModalText: {
-    padding: 8,
-    color: "rgb(0,0,0)",
-    fontSize: 16,
+    paddingTop: 8,
+    fontSize: 15,
   },
   clearModalButtonRow: {
     flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
   },
   clearModalButtonKeep: {
-    flex: 0.5,
-    padding: 8,
-    margin: 4,
+    flex: 1,
+    padding: 12,
     alignItems: "center",
-    borderRadius: 4,
-    backgroundColor: "rgb(60, 220, 60)",
+    borderRadius: 14,
   },
   clearModalButtonDelete: {
-    flex: 0.5,
-    padding: 8,
-    margin: 4,
+    flex: 1,
+    padding: 12,
     alignItems: "center",
-    borderRadius: 4,
-    backgroundColor: "rgb(250, 60, 60)",
-  },
-  clearModalButtonText: {
-    fontSize: 18,
+    borderRadius: 14,
   },
   titleContainer: {
     padding: 16,
-    backgroundColor: "#eb6b96",
     justifyContent: "space-between",
     flexDirection: "row",
+    borderRadius: 22,
+    marginBottom: 12,
   },
   title: {
-    color: "white",
-    fontSize: 40,
+    fontSize: 28,
     fontFamily: "SFCompactRoundedSemibold",
   },
-  addButtonStyle: {
-    backgroundColor: "#8a495f",
+  subtitle: {
+    marginTop: 4,
+    fontSize: 14,
   },
-  addButtonTextStyle: {
-    color: "white",
+  clearButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearIcon: {
+    width: 24,
+    height: 24,
+  },
+  addCustomContainer: {
+    flexDirection: "row",
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 22,
   },
 });

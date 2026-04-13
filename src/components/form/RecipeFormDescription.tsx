@@ -1,27 +1,27 @@
-import { useState } from "react";
 import { StyleSheet, TextInput } from "react-native";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 
 export default function RecipeFormDescription(props: {
   description: string;
   setDescription: (description: string) => void;
 }) {
-  const [internalDescription, setInternalDescription] = useState<string>(
-    props.description
-  );
-
-  const submit = () => {
-    props.setDescription(internalDescription);
-  };
+  const theme = useBaskitTheme();
 
   return (
     <TextInput
-      style={styles.description}
-      value={internalDescription}
+      style={[
+        styles.description,
+        {
+          color: theme.text.secondary,
+          borderColor: theme.surface.cardSoft,
+          backgroundColor: theme.surface.card,
+        },
+      ]}
+      value={props.description}
       placeholder="Beschreibung"
-      placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
-      onChangeText={setInternalDescription}
-      onBlur={submit}
-      onSubmitEditing={submit}
+      placeholderTextColor={theme.text.muted}
+      multiline
+      onChangeText={props.setDescription}
     />
   );
 }
@@ -33,9 +33,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   description: {
-    marginTop: 8,
-    marginBottom: 16,
-    fontSize: 12,
-    color: "rgb(180,180,180)",
+    flex: 1,
+    minHeight: 96,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 14,
+    textAlignVertical: "top",
   },
 });

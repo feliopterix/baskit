@@ -1,53 +1,74 @@
-import { useState } from "react";
-import { StyleSheet, View, TextInput } from "react-native";
+import { StyleSheet, TouchableOpacity, View, TextInput } from "react-native";
 import { Text } from "react-native-paper";
+import { useBaskitTheme } from "../../context/theme/ThemeContextProvider";
 
 export default function RecipeFormInstructions(props: {
   instructions: string[];
   setInstructions: (instructions: string[]) => void;
 }) {
-  const [activeInstruction, setActiveInstruction] = useState<string>("");
+  const theme = useBaskitTheme();
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{"Anleitung"}</Text>
+      <Text style={[styles.title, { color: theme.text.primary }]}>
+        Anleitung
+      </Text>
 
-      <View style={styles.intructionsContainer}>
+      <View style={styles.instructionsContainer}>
         {props.instructions.map((instruction: string, index: number) => {
           return (
-            <View style={styles.instruction} key={index + 1}>
-              <Text style={styles.counter}>{index + 1 + "."}</Text>
-              <Text style={styles.text}>{instruction}</Text>
+            <View style={styles.instruction} key={`${instruction}-${index}`}>
+              <Text style={[styles.counter, { color: theme.text.secondary }]}>
+                {index + 1 + "."}
+              </Text>
+              <TextInput
+                style={[
+                  styles.text,
+                  {
+                    color: theme.text.primary,
+                    borderColor: theme.surface.cardSoft,
+                    backgroundColor: theme.surface.card,
+                  },
+                ]}
+                value={instruction}
+                placeholder="Anweisung"
+                placeholderTextColor={theme.text.muted}
+                multiline
+                onChangeText={(text) => {
+                  const next = [...props.instructions];
+                  next[index] = text;
+                  props.setInstructions(next);
+                }}
+              />
+              <TouchableOpacity
+                style={[
+                  styles.deleteButton,
+                  { backgroundColor: theme.accentColor.passive },
+                ]}
+                onPress={() => {
+                  props.setInstructions(
+                    props.instructions.filter((_, itemIndex) => itemIndex !== index)
+                  );
+                }}
+              >
+                <Text style={{ color: theme.button.foreground }}>Entfernen</Text>
+              </TouchableOpacity>
             </View>
           );
         })}
-        <View style={styles.instruction}>
-          <Text style={styles.counter}>
-            {props.instructions.length + 1 + "."}
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            { backgroundColor: theme.accentColor.active },
+          ]}
+          onPress={() => {
+            props.setInstructions([...props.instructions, ""]);
+          }}
+        >
+          <Text style={{ color: theme.button.foreground }}>
+            Schritt hinzufuegen
           </Text>
-          <TextInput
-            style={styles.text}
-            value={activeInstruction}
-            placeholder="Anweisung"
-            placeholderTextColor={"rgba(100, 100, 100, 0.5)"}
-            onChangeText={(text: string) => setActiveInstruction(text)}
-            onSubmitEditing={() => {
-              props.setInstructions([...props.instructions, activeInstruction]);
-              setActiveInstruction("");
-            }}
-            onKeyPress={({ nativeEvent }) => {
-              if (
-                nativeEvent.key === "Backspace" &&
-                activeInstruction.length === 0
-              ) {
-                setActiveInstruction(
-                  props.instructions[props.instructions.length - 1]
-                );
-                props.setInstructions(props.instructions.slice(0, -1));
-              }
-            }}
-          />
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -59,39 +80,38 @@ const styles = StyleSheet.create({
     width: "100%",
     marginBottom: 16,
   },
-  titleButton: {
-    flex: 1,
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "space-between",
-  },
   title: {
     fontSize: 28,
-    color: "rgb(255,255,255)",
   },
-  arrow: {
-    width: 26,
-    height: 26,
-    margin: 4,
-  },
-  intructionsContainer: {
+  instructionsContainer: {
     marginTop: 16,
+    gap: 10,
   },
   instruction: {
-    flexDirection: "row",
-    marginLeft: 8,
-    marginRight: 8,
-    marginBottom: 8,
+    gap: 8,
   },
   counter: {
-    width: 34,
-    color: "rgb(255,255,255)",
     fontSize: 14,
   },
   text: {
-    flexWrap: "wrap",
-    width: "90%",
-    color: "rgb(255,255,255)",
+    minHeight: 64,
     fontSize: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    textAlignVertical: "top",
+  },
+  deleteButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  addButton: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
   },
 });
