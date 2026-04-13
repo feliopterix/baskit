@@ -1,6 +1,6 @@
-import { useCallback, useContext, useEffect, useState } from "react";
-import { SQLResultSet } from "expo-sqlite";
+import { useCallback, useContext } from "react";
 import { DBContext } from "../DBContextProvider";
+import type { SQLResultSet } from "../../../db/database";
 
 export default function useDBInsert(dbName: string) {
   const database = useContext(DBContext);
@@ -11,9 +11,9 @@ export default function useDBInsert(dbName: string) {
   ): Promise<SQLResultSet> => {
     return new Promise((resolve, reject) => {
       if (!database) {
-        console.error("database not found. aborting...");
+        reject(new Error("Database not available in useDBInsert. Aborting..."));
         return;
-      };
+      }
       const sql = `
                 INSERT INTO ${dbName} (${fields.join(",")}) 
                 values (${fields.map(() => "?").join(",")});
@@ -27,7 +27,7 @@ export default function useDBInsert(dbName: string) {
           reject(err);
         });
     });
-  }, []);
+  }, [database, dbName]);
 
   return insert;
 }

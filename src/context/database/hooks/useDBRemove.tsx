@@ -1,15 +1,17 @@
-import { useCallback, useContext, useEffect, useState } from "react";
-import { SQLResultSet } from "expo-sqlite";
+import { useCallback, useContext } from "react";
 import { DBContext } from "../DBContextProvider";
-import { IBaskitRecipe } from "../../../types";
 import { ISQLiteWhere } from "../../../types/db";
+import type { SQLResultSet } from "../../../db/database";
 
 export default function useDBRemove(dbName: string) {
   const database = useContext(DBContext);
 
   const remove = useCallback(async (where: ISQLiteWhere): Promise<SQLResultSet> => {
     return new Promise((resolve, reject) => {
-      if (!database) return;
+      if (!database) {
+        reject(new Error("Database not available in useDBRemove. Aborting..."));
+        return;
+      }
       const sql = `DELETE FROM ${dbName} WHERE ${where.field}${where.conditional}?;`;
       database
         .executeQuery(sql, [where.value])
@@ -20,7 +22,7 @@ export default function useDBRemove(dbName: string) {
           reject(err);
         });
     });
-  }, []);
+  }, [database, dbName]);
 
   return remove;
 }

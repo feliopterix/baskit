@@ -14,8 +14,8 @@ import { IIngredient } from "../../types";
 export default function AddCustomItem(props: {
   confirmData: (ingredient: IIngredient) => void,
 }) {
-  const unitInput = useRef<TextInput>();
-  const nameInput = useRef<TextInput>();
+  const unitInput = useRef<TextInput | null>(null);
+  const nameInput = useRef<TextInput | null>(null);
 
   const [countValue, setCountValue] = useState<number | null>(null);
   const [unitValue, setUnitValue] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function AddCustomItem(props: {
             setCountValue(Number.parseFloat(text));
         }}
         onSubmitEditing={() => {
-            unitInput.current.focus()
+            unitInput.current?.focus()
         }}
         />
         <TextInput
@@ -51,7 +51,7 @@ export default function AddCustomItem(props: {
         placeholderTextColor={"rgba(120, 70, 120, 0.5)"}
         onChangeText={setUnitValue}
         onSubmitEditing={() => {
-            nameInput.current.focus()
+            nameInput.current?.focus()
         }}
         />
         <TextInput
@@ -63,7 +63,7 @@ export default function AddCustomItem(props: {
         onChangeText={setNameValue}
         onSubmitEditing={() => {
             props.confirmData({count: countValue, unit: unitValue, name: nameValue});
-            nameInput.current.blur();
+            nameInput.current?.blur();
             clearMe();
         }}
         />
@@ -111,4 +111,3 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.1)"
   },
 });
-
